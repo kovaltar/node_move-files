@@ -35,11 +35,7 @@ function conditionsCheck() {
     console.error(`Source is a directory!`);
 
     return false;
-  } else if (
-    !fs.existsSync(path.dirname(destinationPath)) &&
-    !destinationPath.endsWith(path.sep) &&
-    !fs.existsSync(path.dirname(destinationPath))
-  ) {
+  } else if (!fs.existsSync(destDir) && !destinationPath.endsWith(path.sep)) {
     console.error(`Destination directory does not exist!`);
 
     return false;
