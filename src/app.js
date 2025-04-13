@@ -4,49 +4,53 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const [filePath, destinationPath] = process.argv.slice(2);
+const commands = process.argv.slice(2);
+const [filePath, destinationPath] = commands;
 
-let currDir, currFile, destDir, destFile;
+let currDir = null;
+let destDir = null;
+let currFile = null;
+let destFile = null;
 
-if (typeof filePath === 'string') {
-  currDir = path.dirname(filePath);
-  currFile = path.basename(filePath);
-}
+try {
+  if (typeof filePath === 'string') {
+    currDir = path.dirname(filePath);
+    currFile = path.basename(filePath);
+  }
 
-if (typeof destinationPath === 'string') {
-  destDir = path.dirname(destinationPath);
-  destFile = path.basename(destinationPath) || currFile;
-}
+  if (typeof destinationPath === 'string') {
+    destDir = path.dirname(destinationPath);
+    destFile = path.basename(destinationPath) || currFile;
+  }
 
-if (conditionsCheck()) {
-  moveFile(filePath, destinationPath);
+  if (conditionsCheck()) {
+    moveFile(filePath, destinationPath);
+  }
+} catch (err) {
+  console.error(`Error: ${err.message}`);
 }
 
 function conditionsCheck() {
   if (!filePath || !destinationPath) {
-    console.error('Check arguments in command line');
-
-    return false;
+    throw new Error('Check arguments in command line');
   }
 
   if (isDirectory(filePath)) {
-    console.error('Source is a directory!');
-
-    return false;
+    throw new Error('Source is a directory!');
   }
 
   if (!fs.existsSync(destDir) && !destinationPath.endsWith(path.sep)) {
-    console.error('Destination directory does not exist!');
-
-    return false;
+    throw new Error('Destination directory does not exist!');
   }
 
   return true;
 }
 
-function isDirectory(p) {
+function isDirectory(somePath) {
   try {
-    return fs.statSync(path.resolve(p)).isDirectory();
+    const stats = fs.statSync(somePath);
+
+    return stats.isDirectory();
   } catch {
     return false;
   }
@@ -61,15 +65,7 @@ function isLikeDirectory(destPath) {
     }
   }
 
-  if (destPath.endsWith(path.sep)) {
-    return true;
-  }
-
-  if (path.extname(destPath)) {
-    return false;
-  }
-
-  return false;
+  return destPath.endsWith(path.sep);
 }
 
 function renameOrMove() {
@@ -91,9 +87,11 @@ function renameOrMove() {
 }
 
 function moveFile(pathFrom, pathTo) {
-  const destination = isLikeDirectory(pathTo)
-    ? path.join(pathTo, currFile)
-    : pathTo;
+  let destination = pathTo;
+
+  if (isLikeDirectory(pathTo)) {
+    destination = path.join(pathTo, currFile);
+  }
 
   const action = renameOrMove();
 
@@ -104,23 +102,25 @@ function moveFile(pathFrom, pathTo) {
   }
 
   const phrase =
-    {
-      rn: 'renamed',
-      mv: 'moved',
-      rnmv: 'renamed and moved',
-    }[action] || 'processed';
+    action === 'rn'
+      ? 'renamed'
+      : action === 'mv'
+        ? 'moved'
+        : action === 'rnmv'
+          ? 'renamed and moved'
+          : 'processed';
 
   if (!fs.existsSync(pathFrom)) {
-    console.error('Wrong path to file');
-
-    return;
+    throw new Error('Wrong path to file');
   }
 
-  fs.rename(pathFrom, destination, (err) => {
-    if (err) {
-      console.error(`Error while trying to move/rename: ${err.message}`);
+  fs.rename(pathFrom, destination, (error) => {
+    if (error) {
+      console.error(
+        `Error occurred while trying to rename or move a file: ${error.message}`,
+      );
     } else {
-      console.log(`File ${phrase} successfully!`);
+      console.log(`✅ File ${phrase} successfully!`);
     }
   });
 }
